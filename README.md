@@ -146,7 +146,7 @@ down this chain of calls:
   Spring will then take that URL and find the endpoint we have defined in the
   `hello()` method of our controller. Note that the test method, `hello()` now
   throws an `Exception`. This is due to the fact that the `perform()` method
-  can throw an `Exception`. We'll handle this better in a little bit.
+  can throw an `Exception`.
 - The `andDo(print())` will print the results of the `perform()` method to the
   console. We can use this to diagnose potential issues.
 - The `andExpect(status().isOk())` call tells `mockMvc` that we want an HTTP

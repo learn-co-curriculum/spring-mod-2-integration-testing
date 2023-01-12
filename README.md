@@ -369,7 +369,6 @@ If we run the `CatFactServiceIntegrationTest`, we should see it passes.
 Note: This is not a "unit" test because it actually lets the real service (not
 mocked) make a request to the real API and tests the actual response (albeit not
 the actual precise value, for the reasons we discussed).
-123456789101112131415161718192021222324252627ac282930313233343536373839404041434
 
 ## Code Check
 

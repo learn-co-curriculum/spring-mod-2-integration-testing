@@ -176,10 +176,14 @@ Consider defining a bean of type 'com.example.springtestingdemo.service.CatFactS
 ```
 
 Hmm... it seems like it is looking for the `CatFactService` in its limited
-application context that we defined with the `@WebMvcTest`. It appears we need
-a mock object of the service! But instead of using Mockito, we'll take advantage
-of the `@MockBean` annotation. This annotation will not only create a mock object
-of the service, but it will also add it to the application context:
+application context that we defined with the `@WebMvcTest`. Even though the
+`/hello` endpoint does not require a `CatFactService` instance, it is still
+necessary to have as a bean in its application context since the
+`DemoController` needs one to run properly. This is the case for another mock
+object! But instead of using Mockito, we'll take advantage of the `@MockBean`
+annotation. This annotation will not only create a mock object of the service,
+but it will also add it to the application context:
+
 
 ```java
 package com.example.springtestingdemo.controller;
@@ -228,6 +232,7 @@ package com.example.springtestingdemo.controller;
 
 import com.example.springtestingdemo.dto.CatFactDTO;
 import com.example.springtestingdemo.service.CatFactService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -246,47 +251,50 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(DemoController.class)
 class DemoControllerIntegrationTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+  @Autowired
+  private MockMvc mockMvc;
 
-    @MockBean
-    private CatFactService catFactService;
+  @MockBean
+  private CatFactService catFactService;
 
-    @Test
-    void hello() throws Exception {
-        mockMvc.perform(get("/hello"))
-                .andDo(print())
-                .andExpect(status().isOk())
-                .andExpect(content().string(equalTo("Hello World")));
-    }
+  @Test
+  void hello() throws Exception {
+    mockMvc.perform(get("/hello"))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(content().string(equalTo("Hello World")));
+  }
 
-    @Test
-    void getCatFact() throws Exception {
-        CatFactDTO catFact = new CatFactDTO();
-        String fact = "In ancient Egypt, when a family cat died, " +
-                "all family members would shave their eyebrows as a sign of mourning.";
-        catFact.setFact(fact);
-        when(catFactService.getFact()).thenReturn(catFact);
+  @Test
+  void getCatFact() throws Exception {
+    CatFactDTO catFact = new CatFactDTO();
+    String fact = "In ancient Egypt, when a family cat died, " +
+            "all family members would shave their eyebrows as a sign of mourning.";
+    catFact.setFact(fact);
+    when(catFactService.getFact()).thenReturn(catFact);
 
-        String expected = "{\"fact\":\"" + fact + "\"}";
-        
-        MvcResult response = mockMvc.perform(get("/cat-fact"))
-                .andDo(print())
-                .andExpect(status().isOk())
-                .andReturn();
+    MvcResult response = mockMvc.perform(get("/cat-fact"))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andReturn();
 
-        assertEquals(expected, response.getResponse().getContentAsString());
-    }
+    ObjectMapper objectMapper = new ObjectMapper();
+    CatFactDTO catFactResponse =
+            objectMapper.readValue(response.getResponse().getContentAsString(), CatFactDTO.class);
+
+    assertEquals(catFact, catFactResponse);
+  }
 }
 ```
 
-Here, we define again a hardcoded value of what we want the mock
-`CatFactService` to return when we call the `getFact()` method. We'll also
-define the expected output for when we hit the endpoint, `/cat-fact`. Then, just
-like we did above, we'll have the `mockMvc` hit the `/cat-fact` endpoint. But
-this time, we'll have it return the response with the `.andReturn()` method
-call. This will give us a `MvcResult`. From there, we'll grab the content and
-assert that it equals what we expected.
+Here, we define again, a hardcoded value of what we want the mock
+`CatFactService` to return when we call the `getFact()` method. Then, just like
+we did above, we'll have the `mockMvc` hit the `/cat-fact` endpoint. But this
+time, we'll have it return the response with the `.andReturn()` method call.
+this will give us a `MvcResult`. From there, we'll grab the content and use the
+`ObjectMapper` to read the value from the JSON that we got back in response.
+Once we convert the JSON back to the `CatFactDTO`, we can assert the two objects
+to ensure that they both are equal.
 
 If we run this test, it should also pass!
 
@@ -296,11 +304,22 @@ We should have now noticed that we still have a potential gap, which is that
 all the tests we've written so far could pass even if the `getFact()` method
 on the `CatFactService` never actually interfaced with the cat fact API.
 
-Let's fix that with an integration test of the service class. We can generate
-this new class just as we did before by right-clicking in the blank space within
-the `CatFactService` class --> Choosing "Generate..." --> Then "Test...". We'll
-call this class `CatFactServiceIntegrationTest`. Once the class has been
-generated, it should look like this:
+Before we generate a test for this class, make sure to un-comment the code we
+commented out previously in the last lesson within the `CatFactService` class:
+
+```java
+    public CatFactDTO getFact() {
+        CatFactDTO catFact = restTemplate.getForObject(FACT_URI, CatFactDTO.class);
+        log.info("Retrieved cat fact from external source. Returning the DTO");
+        return catFact;
+    }
+```
+
+Let's create an integration test of the service class. We can generate this new
+class just as we did before by right-clicking in the blank space within the
+`CatFactService` class --> Choosing "Generate..." --> Then "Test...". We'll call
+this class `CatFactServiceIntegrationTest`. Once the class has been generated,
+it should look like this:
 
 ```java
 package com.example.springtestingdemo.service;
@@ -333,7 +352,7 @@ instead:
 
 1. Test that the return value is not null.
 2. Make sure that we don't get the same fact on two consecutive calls, ensuring
-   that the joke is indeed "random".
+   that the fact is indeed "random".
 
 ```java
 package com.example.springtestingdemo.service;
@@ -365,7 +384,6 @@ value being returned. The more consecutive calls we make, the less likely they
 are to all return the same value.
 
 If we run the `CatFactServiceIntegrationTest`, we should see it passes.
-
 Note: This is not a "unit" test because it actually lets the real service (not
 mocked) make a request to the real API and tests the actual response (albeit not
 the actual precise value, for the reasons we discussed).

@@ -298,96 +298,6 @@ to ensure that they both are equal.
 
 If we run this test, it should also pass!
 
-### Service Integration Tests
-
-We should have now noticed that we still have a potential gap, which is that
-all the tests we've written so far could pass even if the `getFact()` method
-on the `CatFactService` never actually interfaced with the cat fact API.
-
-Before we generate a test for this class, make sure to un-comment the code we
-commented out previously in the last lesson within the `CatFactService` class:
-
-```java
-    public CatFactDTO getFact() {
-        CatFactDTO catFact = restTemplate.getForObject(FACT_URI, CatFactDTO.class);
-        log.info("Retrieved cat fact from external source. Returning the DTO");
-        return catFact;
-    }
-```
-
-Let's create an integration test of the service class. We can generate this new
-class just as we did before by right-clicking in the blank space within the
-`CatFactService` class --> Choosing "Generate..." --> Then "Test...". We'll call
-this class `CatFactServiceIntegrationTest`. Once the class has been generated,
-it should look like this:
-
-```java
-package com.example.springtestingdemo.service;
-
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-class CatFactServiceIntegrationTest {
-
-    @Test
-    void getFact() {
-    }
-}
-```
-
-Let's rename the test `getFact()` method to something a little more descriptive,
-like "getFactFromExternalApi":
-
-```java
-    @Test
-    void getFactFromExternalApi() {
-    }
-```
-
-Now we'll implement it to call the `CatFactService`, which in turn, will call
-the external cat fact API. This gets tricky since the cat facts are random. We
-cannot test for a specific value back from the service, so we will do two things
-instead:
-
-1. Test that the return value is not null.
-2. Make sure that we don't get the same fact on two consecutive calls, ensuring
-   that the fact is indeed "random".
-
-```java
-package com.example.springtestingdemo.service;
-
-import com.example.springtestingdemo.dto.CatFactDTO;
-import org.junit.jupiter.api.Test;
-import org.springframework.web.client.RestTemplate;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-class CatFactServiceIntegrationTest {
-
-    @Test
-    void getFactFromExternalApi() {
-        CatFactService catFactService = new CatFactService(new RestTemplate());
-        CatFactDTO firstCatFact = catFactService.getFact();
-        assertNotNull(firstCatFact);
-        CatFactDTO secondCatFact = catFactService.getFact();
-        assertNotNull(secondCatFact);
-        assertNotEquals(firstCatFact, secondCatFact);
-    }
-}
-```
-
-Note: With a true random service, it's possible that the same return value could
-be returned from 2 consecutive calls. If we wanted to guard against this, we
-could conditionally make a third call if the 2 first calls resulted in the same
-value being returned. The more consecutive calls we make, the less likely they
-are to all return the same value.
-
-If we run the `CatFactServiceIntegrationTest`, we should see it passes.
-Note: This is not a "unit" test because it actually lets the real service (not
-mocked) make a request to the real API and tests the actual response (albeit not
-the actual precise value, for the reasons we discussed).
-
 ## Code Check
 
 Check the project structure and code in each class to ensure your code matches
@@ -423,11 +333,9 @@ what was covered in this lesson.
                 └── example
                     └── springtestingdemo
                         ├── SpringTestingDemoApplicationTests.java
-                        ├──controller
-                        │  ├──DemoControllerIntegrationTest.java
-                        │  └──DemoControllerUnitTest.java
-                        └── service
-                            └── CatFactServiceIntegrationTest.java
+                        └──controller
+                            ├──DemoControllerIntegrationTest.java
+                            └──DemoControllerUnitTest.java
 ```
 
 ### DemoControllerIntegrationTest.java
@@ -485,31 +393,6 @@ class DemoControllerIntegrationTest {
                 .andReturn();
 
         assertEquals(expected, response.getResponse().getContentAsString());
-    }
-}
-```
-
-### CatFactServiceIntegrationTest.java
-
-```java
-package com.example.springtestingdemo.service;
-
-import com.example.springtestingdemo.dto.CatFactDTO;
-import org.junit.jupiter.api.Test;
-import org.springframework.web.client.RestTemplate;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-class CatFactServiceIntegrationTest {
-
-    @Test
-    void getFactFromExternalApi() {
-        CatFactService catFactService = new CatFactService(new RestTemplate());
-        CatFactDTO firstCatFact = catFactService.getFact();
-        assertNotNull(firstCatFact);
-        CatFactDTO secondCatFact = catFactService.getFact();
-        assertNotNull(secondCatFact);
-        assertNotEquals(firstCatFact, secondCatFact);
     }
 }
 ```
